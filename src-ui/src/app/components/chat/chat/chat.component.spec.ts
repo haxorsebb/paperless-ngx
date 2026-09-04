@@ -115,9 +115,11 @@ describe('ChatComponent', () => {
 
     component.sendMessage()
 
-    expect(chatService.streamChat).toHaveBeenCalledWith(undefined, 'Compare', [
-      17, 23,
-    ])
+    expect(chatService.streamChat).toHaveBeenCalledWith(
+      undefined,
+      'Compare',
+      [17, 23]
+    )
   })
 
   it('should keep document detail scope authoritative over list selection', () => {
@@ -146,7 +148,9 @@ describe('ChatComponent', () => {
     component.sendMessage()
 
     expect(component.selectedDocumentIds).toEqual([])
-    expect(component.scopeDescription).toBe('Chat scope: all permitted documents')
+    expect(component.scopeDescription).toBe(
+      'Chat scope: all permitted documents'
+    )
     expect(chatService.streamChat).toHaveBeenCalledWith(
       undefined,
       'Question',
