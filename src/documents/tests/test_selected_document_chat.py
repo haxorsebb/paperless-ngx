@@ -1,3 +1,5 @@
+"""Regression coverage for exact, permission-safe document chat scopes."""
+
 from __future__ import annotations
 
 from unittest import mock
