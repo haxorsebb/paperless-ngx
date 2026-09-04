@@ -95,6 +95,10 @@ class TestChatStreamingViewDocumentIds(APITestCase):
         with (
             mock.patch("documents.views.AIConfig") as ai_config,
             mock.patch(
+                "documents.views.permitted_document_ids",
+                return_value={visible.pk},
+            ),
+            mock.patch(
                 "documents.views.stream_chat_with_documents",
                 return_value=iter(()),
             ) as stream_chat,
