@@ -10,6 +10,7 @@ import {
   CHAT_METADATA_DELIMITER,
   ChatService,
 } from 'src/app/services/chat.service'
+import { DocumentListViewService } from 'src/app/services/document-list-view.service'
 import { ChatComponent } from './chat.component'
 
 describe('ChatComponent', () => {
@@ -19,8 +20,17 @@ describe('ChatComponent', () => {
   let router: Router
   let routerEvents$: Subject<NavigationEnd>
   let mockStream$: Subject<string>
+  let documentListViewService: {
+    selected: Set<number>
+    allSelected: boolean
+  }
 
   beforeEach(async () => {
+    documentListViewService = {
+      selected: new Set<number>(),
+      allSelected: false,
+    }
+
     TestBed.configureTestingModule({
       imports: [
         NgxBootstrapIconsModule.pick(allIcons),
@@ -30,6 +40,10 @@ describe('ChatComponent', () => {
       providers: [
         provideHttpClient(withInterceptorsFromDi()),
         provideHttpClientTesting(),
+        {
+          provide: DocumentListViewService,
+          useValue: documentListViewService,
+        },
       ],
     }).compileComponents()
 
@@ -65,11 +79,79 @@ describe('ChatComponent', () => {
     expect(component.documentId()).toBe(456)
   })
 
-  it('should return correct placeholder based on documentId', () => {
+  it('should return correct placeholder based on document scope', () => {
     component.documentId.set(123)
     expect(component.placeholder).toBe('Ask a question about this document...')
+
     component.documentId.set(undefined)
+    documentListViewService.selected.add(17)
+    documentListViewService.selected.add(23)
+    expect(component.placeholder).toBe(
+      'Ask a question about the selected documents...'
+    )
+
+    documentListViewService.selected.clear()
     expect(component.placeholder).toBe('Ask a question about a document...')
+  })
+
+  it('should describe selected document chat scope', () => {
+    documentListViewService.selected.add(17)
+    documentListViewService.selected.add(23)
+
+    expect(component.selectedDocumentIds).toEqual([17, 23])
+    expect(component.scopeDescription).toBe('Chat scope: 2 selected documents')
+
+    fixture.detectChanges()
+    expect(
+      fixture.nativeElement.querySelector('[data-testid="chat-scope"]')
+        .textContent
+    ).toContain('Chat scope: 2 selected documents')
+  })
+
+  it('should send selected document IDs to chat', () => {
+    documentListViewService.selected.add(17)
+    documentListViewService.selected.add(23)
+    component.input.set('Compare')
+
+    component.sendMessage()
+
+    expect(chatService.streamChat).toHaveBeenCalledWith(undefined, 'Compare', [
+      17, 23,
+    ])
+  })
+
+  it('should keep document detail scope authoritative over list selection', () => {
+    documentListViewService.selected.add(23)
+    documentListViewService.selected.add(41)
+    component.documentId.set(17)
+    component.input.set('Question')
+
+    component.sendMessage()
+
+    expect(component.selectedDocumentIds).toEqual([])
+    expect(component.scopeDescription).toBe('Chat scope: this document')
+    expect(chatService.streamChat).toHaveBeenCalledWith(
+      17,
+      'Question',
+      undefined
+    )
+  })
+
+  it('should not treat select-all filtered state as a concrete ID scope', () => {
+    documentListViewService.selected.add(17)
+    documentListViewService.selected.add(23)
+    documentListViewService.allSelected = true
+    component.input.set('Question')
+
+    component.sendMessage()
+
+    expect(component.selectedDocumentIds).toEqual([])
+    expect(component.scopeDescription).toBe('Chat scope: all permitted documents')
+    expect(chatService.streamChat).toHaveBeenCalledWith(
+      undefined,
+      'Question',
+      undefined
+    )
   })
 
   it('should send a message and render the streaming response', async () => {
