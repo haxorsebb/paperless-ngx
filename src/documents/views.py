@@ -2295,6 +2295,18 @@ class DocumentViewSet(
 class ChatStreamingSerializer(serializers.Serializer[dict[str, Any]]):
     q = serializers.CharField(required=True, max_length=4000)
     document_id = serializers.IntegerField(required=False, allow_null=True)
+    document_ids = serializers.ListField(
+        child=serializers.IntegerField(),
+        required=False,
+        allow_empty=False,
+    )
+
+    def validate(self, attrs):
+        if "document_id" in attrs and "document_ids" in attrs:
+            raise serializers.ValidationError(
+                "document_id and document_ids are mutually exclusive",
+            )
+        return attrs
 
 
 @method_decorator(
@@ -2319,6 +2331,7 @@ class ChatStreamingView(GenericAPIView[Any]):
         question = serializer.validated_data["q"]
 
         doc_id = serializer.validated_data.get("document_id")
+        document_ids = serializer.validated_data.get("document_ids")
 
         if doc_id:
             try:
@@ -2330,6 +2343,19 @@ class ChatStreamingView(GenericAPIView[Any]):
                 return HttpResponseForbidden("Insufficient permissions")
 
             documents = Document.objects.filter(pk=document.pk)
+            unrestricted = False
+        elif document_ids is not None:
+            requested_ids = set(document_ids)
+            documents = Document.objects.filter(pk__in=requested_ids)
+
+            if documents.count() != len(requested_ids):
+                return HttpResponseBadRequest("Document not found")
+
+            if documents.exclude(
+                pk__in=permitted_document_ids(request.user),
+            ).exists():
+                return HttpResponseForbidden("Insufficient permissions")
+
             unrestricted = False
         else:
             documents = Document.objects.filter(

@@ -36,7 +36,7 @@ describe('ChatService', () => {
     httpMock.verify()
   })
 
-  it('should stream chat messages', (done) => {
+  it('should stream chat messages for a single document', (done) => {
     const documentId = 1
     const prompt = 'Hello, world!'
     const mockResponse = 'Partial response text'
@@ -58,6 +58,39 @@ describe('ChatService', () => {
       type: HttpEventType.DownloadProgress,
       partialText: mockResponse,
     } as any)
+  })
+
+  it('should send selected document IDs as explicit chat scope', () => {
+    const apiUrl = `${environment.apiBaseUrl}documents/chat/`
+
+    service.streamChat(undefined, 'Compare', [17, 23, 41]).subscribe()
+
+    const req = httpMock.expectOne(apiUrl)
+    expect(req.request.body).toEqual({
+      document_ids: [17, 23, 41],
+      q: 'Compare',
+    })
+  })
+
+  it('should keep document detail scope authoritative over selected IDs', () => {
+    const apiUrl = `${environment.apiBaseUrl}documents/chat/`
+
+    service.streamChat(17, 'Question', [23, 41]).subscribe()
+
+    const req = httpMock.expectOne(apiUrl)
+    expect(req.request.body).toEqual({
+      document_id: 17,
+      q: 'Question',
+    })
+  })
+
+  it('should omit explicit scope for archive-wide chat', () => {
+    const apiUrl = `${environment.apiBaseUrl}documents/chat/`
+
+    service.streamChat(undefined, 'Question').subscribe()
+
+    const req = httpMock.expectOne(apiUrl)
+    expect(req.request.body).toEqual({ q: 'Question' })
   })
 
   it('should parse chat references from the metadata trailer', () => {

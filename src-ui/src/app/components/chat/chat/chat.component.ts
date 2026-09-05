@@ -16,6 +16,7 @@ import {
   ChatService,
   parseChatResponse,
 } from 'src/app/services/chat.service'
+import { DocumentListViewService } from 'src/app/services/document-list-view.service'
 
 @Component({
   selector: 'pngx-chat',
@@ -36,6 +37,7 @@ export class ChatComponent implements OnInit {
   readonly documentId = signal<number>(undefined)
 
   private chatService: ChatService = inject(ChatService)
+  private documentListViewService = inject(DocumentListViewService)
   private router: Router = inject(Router)
 
   @ViewChild('scrollAnchor') scrollAnchor!: ElementRef<HTMLDivElement>
@@ -44,10 +46,36 @@ export class ChatComponent implements OnInit {
   private typewriterBuffer: string[] = []
   private typewriterActive = false
 
+  public get selectedDocumentIds(): number[] {
+    if (this.documentId() || this.documentListViewService.allSelected) {
+      return []
+    }
+    return Array.from(this.documentListViewService.selected)
+  }
+
   public get placeholder(): string {
-    return this.documentId()
-      ? $localize`Ask a question about this document...`
-      : $localize`Ask a question about a document...`
+    if (this.documentId()) {
+      return $localize`Ask a question about this document...`
+    }
+    if (this.selectedDocumentIds.length) {
+      return $localize`Ask a question about the selected documents...`
+    }
+    return $localize`Ask a question about a document...`
+  }
+
+  public get scopeDescription(): string {
+    if (this.documentId()) {
+      return $localize`Chat scope: this document`
+    }
+
+    const selectedCount = this.selectedDocumentIds.length
+    if (selectedCount === 1) {
+      return $localize`Chat scope: 1 selected document`
+    }
+    if (selectedCount > 1) {
+      return $localize`Chat scope: ${selectedCount} selected documents`
+    }
+    return $localize`Chat scope: all permitted documents`
   }
 
   ngOnInit(): void {
@@ -83,38 +111,45 @@ export class ChatComponent implements OnInit {
     this.loading.set(true)
 
     let lastVisibleContent = ''
+    const selectedDocumentIds = this.selectedDocumentIds
 
-    this.chatService.streamChat(this.documentId(), this.input()).subscribe({
-      next: (chunk) => {
-        const nextResponse = parseChatResponse(chunk)
+    this.chatService
+      .streamChat(
+        this.documentId(),
+        this.input(),
+        selectedDocumentIds.length ? selectedDocumentIds : undefined
+      )
+      .subscribe({
+        next: (chunk) => {
+          const nextResponse = parseChatResponse(chunk)
 
-        if (nextResponse.content.length < lastVisibleContent.length) {
-          this.resetTypewriter(assistantMessage, nextResponse.content)
-          lastVisibleContent = nextResponse.content
-        } else {
-          const visibleDelta = nextResponse.content.substring(
-            lastVisibleContent.length
-          )
-          lastVisibleContent = nextResponse.content
-          this.enqueueTypewriter(visibleDelta, assistantMessage)
-        }
+          if (nextResponse.content.length < lastVisibleContent.length) {
+            this.resetTypewriter(assistantMessage, nextResponse.content)
+            lastVisibleContent = nextResponse.content
+          } else {
+            const visibleDelta = nextResponse.content.substring(
+              lastVisibleContent.length
+            )
+            lastVisibleContent = nextResponse.content
+            this.enqueueTypewriter(visibleDelta, assistantMessage)
+          }
 
-        assistantMessage.references = nextResponse.references
-        this.notifyMessagesChanged()
-      },
-      error: () => {
-        assistantMessage.content += '\n\n⚠️ Error receiving response.'
-        assistantMessage.isStreaming = false
-        this.notifyMessagesChanged()
-        this.loading.set(false)
-      },
-      complete: () => {
-        assistantMessage.isStreaming = false
-        this.notifyMessagesChanged()
-        this.loading.set(false)
-        this.scrollToBottom()
-      },
-    })
+          assistantMessage.references = nextResponse.references
+          this.notifyMessagesChanged()
+        },
+        error: () => {
+          assistantMessage.content += '\n\n⚠️ Error receiving response.'
+          assistantMessage.isStreaming = false
+          this.notifyMessagesChanged()
+          this.loading.set(false)
+        },
+        complete: () => {
+          assistantMessage.isStreaming = false
+          this.notifyMessagesChanged()
+          this.loading.set(false)
+          this.scrollToBottom()
+        },
+      })
 
     this.input.set('')
   }
