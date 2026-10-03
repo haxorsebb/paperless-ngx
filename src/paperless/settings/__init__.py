@@ -317,6 +317,16 @@ AUTHENTICATION_BACKENDS = [
     "allauth.account.auth_backends.AuthenticationBackend",
 ]
 
+PAM_AUTH_ENABLED = get_bool_from_env("PAPERLESS_ENABLE_PAM_AUTH")
+PAPERLESS_PAM_SERVICE = os.getenv("PAPERLESS_PAM_SERVICE", "paperless")
+
+if PAM_AUTH_ENABLED:
+    INSTALLED_APPS.append("django_pam")
+    AUTHENTICATION_BACKENDS.insert(
+        0,
+        "paperless.pam_auth.PaperlessPAMBackend",
+    )
+
 ACCOUNT_LOGOUT_ON_GET = True
 ACCOUNT_DEFAULT_HTTP_PROTOCOL = os.getenv(
     "PAPERLESS_ACCOUNT_DEFAULT_HTTP_PROTOCOL",
