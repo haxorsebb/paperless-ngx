@@ -130,6 +130,9 @@ ARG RUNTIME_PACKAGES="\
   gnupg \
   icc-profiles-free \
   imagemagick \
+  # System authentication clients (host SSSD remains outside the container)
+  libpam-sss \
+  libnss-sss \
   # PostgreSQL
   postgresql-client \
   # MySQL / MariaDB
@@ -199,6 +202,10 @@ RUN set -eux \
       --index https://download.pytorch.org/whl/cpu \
       --index-strategy unsafe-best-match \
       --requirements requirements.txt \
+  && echo "Installing PAM authentication backend" \
+    && uv pip install --no-cache --system --no-python-downloads --python-preference system \
+      --index https://pypi.org/simple \
+      "django-pam==3.0.1" \
   && echo "Installing NLTK data" \
     && python3 -W ignore::RuntimeWarning -m nltk.downloader -d "/usr/share/nltk_data" snowball_data \
     && python3 -W ignore::RuntimeWarning -m nltk.downloader -d "/usr/share/nltk_data" stopwords \
