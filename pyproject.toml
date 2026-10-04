@@ -34,7 +34,7 @@ dependencies = [
   "django-filter~=25.1",
   "django-guardian~=3.3.3",
   "django-multiselectfield~=1.0.1",
-  "django-pam==3.0.1; sys_platform == 'linux'",
+  "django-pam==3.0.1; sys_platform=='linux'",
   "django-rich~=2.2.0",
   "django-soft-delete~=1.0.18",
   "django-treenode>=0.24",
