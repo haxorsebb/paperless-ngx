@@ -1,6 +1,7 @@
 from unittest.mock import patch
 
 from django.contrib.auth.models import Group
+from django.contrib.auth.models import Permission
 from django.contrib.auth.models import User
 from django.test import TestCase
 from django.test import override_settings
@@ -87,8 +88,49 @@ class TestPaperlessPAMBackend(TestCase):
             set(user.groups.values_list("name", flat=True)),
             {"hr", "management"},
         )
-        self.assertTrue(Group.objects.filter(name="hr").exists())
-        self.assertTrue(Group.objects.filter(name="management").exists())
+        for group_name in ("hr", "management"):
+            group = Group.objects.get(name=group_name)
+            self.assertEqual(
+                set(group.permissions.values_list("codename", flat=True)),
+                {"view_document", "view_uisettings"},
+            )
+
+    @patch.object(PaperlessPAMBackend, "_managed_groups")
+    @patch.object(PaperlessPAMBackend, "_system_groups")
+    @patch.object(PAMBackend, "authenticate")
+    def test_existing_managed_group_permissions_are_preserved(
+        self,
+        pam_authenticate,
+        system_groups,
+        managed_groups,
+    ):
+        user = User.objects.create_user(username="alice")
+        group = Group.objects.create(name="hr")
+        custom_permission = Permission.objects.get(
+            content_type__app_label="auth",
+            codename="view_user",
+        )
+        group.permissions.add(custom_permission)
+
+        system_groups.return_value = {"hr"}
+        managed_groups.return_value = {"hr"}
+        pam_authenticate.return_value = user
+
+        self.backend.authenticate(
+            request=None,
+            username="alice",
+            password="secret",
+        )
+
+        self.assertEqual(
+            set(
+                group.permissions.values_list(
+                    "content_type__app_label",
+                    "codename",
+                ),
+            ),
+            {("auth", "view_user")},
+        )
 
     @patch.object(PaperlessPAMBackend, "_managed_groups")
     @patch.object(PaperlessPAMBackend, "_system_groups")
