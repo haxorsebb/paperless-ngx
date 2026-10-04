@@ -81,6 +81,28 @@ RUN set -eux \
 # Copy our service defs and filesystem
 COPY ./docker/rootfs /
 
+# Stage: sssd-client-builder
+# Purpose: Builds SSSD PAM/NSS clients with the same non-root service identity
+#          as the appliance host.
+FROM docker.io/debian:trixie-slim AS sssd-client-builder
+
+ARG DEBIAN_FRONTEND=noninteractive
+ARG SSSD_SOURCE_VERSION=2.10.1-2
+
+RUN set -eux \
+  && sed -i 's/^Types: deb$/Types: deb deb-src/' /etc/apt/sources.list.d/debian.sources \
+  && apt-get update \
+  && apt-get install --yes --quiet --no-install-recommends build-essential dpkg-dev \
+  && apt-get build-dep --yes --no-install-recommends sssd \
+  && mkdir -p /build /out \
+  && cd /build \
+  && apt-get source "sssd=${SSSD_SOURCE_VERSION}" \
+  && cd "sssd-${SSSD_SOURCE_VERSION%-*}" \
+  && sed -i 's/--with-sssd-user=root/--with-sssd-user=sssd/' debian/rules \
+  && grep -F -- '--with-sssd-user=sssd' debian/rules \
+  && DEB_BUILD_OPTIONS=nocheck dpkg-buildpackage --build=binary --no-sign \
+  && cp ../libpam-sss_*.deb ../libnss-sss_*.deb /out/
+
 # Stage: main-app
 # Purpose: The final image
 # Comments:
@@ -130,9 +152,8 @@ ARG RUNTIME_PACKAGES="\
   gnupg \
   icc-profiles-free \
   imagemagick \
-  # System authentication clients (host SSSD remains outside the container)
-  libpam-sss \
-  libnss-sss \
+  # System authentication clients are installed from the appliance-compatible
+  # SSSD build stage below; the host SSSD daemon remains outside the container.
   # PostgreSQL
   postgresql-client \
   # MySQL / MariaDB
@@ -158,6 +179,18 @@ ARG RUNTIME_PACKAGES="\
   media-types \
   zlib1g \
   poppler-utils"
+
+# Install appliance-compatible SSSD clients before the remaining runtime
+# packages. pam_sss validates the host responder's numeric service identity,
+# so the container carries the same fixed sssd account as the appliance.
+COPY --from=sssd-client-builder /out/libpam-sss_*.deb /out/libnss-sss_*.deb /tmp/sssd-client/
+
+RUN set -eux \
+  && groupadd --system --gid 985 sssd \
+  && useradd --system --uid 990 --gid sssd --home-dir /run/sssd --no-create-home --shell /usr/sbin/nologin sssd \
+  && apt-get update \
+  && apt-get install --yes --quiet --no-install-recommends /tmp/sssd-client/*.deb \
+  && rm -rf /tmp/sssd-client /var/lib/apt/lists/*
 
 # Install basic runtime packages.
 # These change very infrequently
