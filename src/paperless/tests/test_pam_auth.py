@@ -11,17 +11,24 @@ from paperless.pam_auth import PaperlessPAMBackend
 
 @override_settings(
     PAPERLESS_PAM_SERVICE="paperless",
-    PAPERLESS_PAM_USER_GROUP="paperless-users",
+    PAPERLESS_PAM_GROUP_MARKER="paperless-group-marker",
     PAPERLESS_PAM_ADMIN_GROUP="paperless-admins",
 )
 class TestPaperlessPAMBackend(TestCase):
     def setUp(self):
         self.backend = PaperlessPAMBackend()
 
+    @patch.object(PaperlessPAMBackend, "_managed_groups")
     @patch.object(PaperlessPAMBackend, "_system_groups")
     @patch.object(PAMBackend, "authenticate")
-    def test_requires_paperless_eligibility_group(self, pam_authenticate, system_groups):
+    def test_requires_at_least_one_managed_group(
+        self,
+        pam_authenticate,
+        system_groups,
+        managed_groups,
+    ):
         system_groups.return_value = {"users", "hr"}
+        managed_groups.return_value = set()
 
         user = self.backend.authenticate(
             request=None,
@@ -32,20 +39,41 @@ class TestPaperlessPAMBackend(TestCase):
         self.assertIsNone(user)
         pam_authenticate.assert_not_called()
 
+    @patch("paperless.pam_auth.grp.getgrnam")
+    def test_marker_selects_managed_groups(self, getgrnam):
+        def group(name):
+            members = {
+                "hr": ["alice", "paperless-group-marker"],
+                "management": ["alice"],
+                "accounting": ["paperless-group-marker"],
+            }
+            result = type("Group", (), {})()
+            result.gr_mem = members[name]
+            return result
+
+        getgrnam.side_effect = group
+
+        managed = self.backend._managed_groups(
+            {"hr", "management", "accounting"},
+        )
+
+        self.assertEqual(managed, {"hr", "accounting"})
+
+    @patch.object(PaperlessPAMBackend, "_managed_groups")
     @patch.object(PaperlessPAMBackend, "_system_groups")
     @patch.object(PAMBackend, "authenticate")
-    def test_syncs_only_existing_paperless_groups(self, pam_authenticate, system_groups):
+    def test_jit_creates_and_syncs_managed_groups(
+        self,
+        pam_authenticate,
+        system_groups,
+        managed_groups,
+    ):
         user = User.objects.create_user(username="alice")
-        paperless_users = Group.objects.create(name="paperless-users")
-        hr = Group.objects.create(name="hr")
-        Group.objects.create(name="management")
+        stale = Group.objects.create(name="old-team")
+        user.groups.add(stale)
 
-        system_groups.return_value = {
-            "users",
-            "paperless-users",
-            "hr",
-            "not-a-paperless-group",
-        }
+        system_groups.return_value = {"users", "hr", "management"}
+        managed_groups.return_value = {"hr", "management"}
         pam_authenticate.return_value = user
 
         result = self.backend.authenticate(
@@ -55,19 +83,30 @@ class TestPaperlessPAMBackend(TestCase):
         )
 
         self.assertEqual(result, user)
-        self.assertEqual(set(user.groups.all()), {paperless_users, hr})
+        self.assertEqual(
+            set(user.groups.values_list("name", flat=True)),
+            {"hr", "management"},
+        )
+        self.assertTrue(Group.objects.filter(name="hr").exists())
+        self.assertTrue(Group.objects.filter(name="management").exists())
 
+    @patch.object(PaperlessPAMBackend, "_managed_groups")
     @patch.object(PaperlessPAMBackend, "_system_groups")
     @patch.object(PAMBackend, "authenticate")
-    def test_admin_group_grants_staff_and_superuser(self, pam_authenticate, system_groups):
+    def test_admin_group_grants_staff_and_superuser(
+        self,
+        pam_authenticate,
+        system_groups,
+        managed_groups,
+    ):
         user = User.objects.create_user(
             username="alice",
             is_staff=False,
             is_superuser=False,
         )
-        Group.objects.create(name="paperless-admins")
 
         system_groups.return_value = {"paperless-admins"}
+        managed_groups.return_value = {"paperless-admins"}
         pam_authenticate.return_value = user
 
         self.backend.authenticate(
@@ -79,13 +118,16 @@ class TestPaperlessPAMBackend(TestCase):
         user.refresh_from_db()
         self.assertTrue(user.is_staff)
         self.assertTrue(user.is_superuser)
+        self.assertTrue(user.groups.filter(name="paperless-admins").exists())
 
+    @patch.object(PaperlessPAMBackend, "_managed_groups")
     @patch.object(PaperlessPAMBackend, "_system_groups")
     @patch.object(PAMBackend, "authenticate")
     def test_login_resynchronizes_groups_and_admin_role(
         self,
         pam_authenticate,
         system_groups,
+        managed_groups,
     ):
         user = User.objects.create_user(
             username="alice",
@@ -93,10 +135,10 @@ class TestPaperlessPAMBackend(TestCase):
             is_superuser=True,
         )
         stale = Group.objects.create(name="management")
-        paperless_users = Group.objects.create(name="paperless-users")
         user.groups.add(stale)
 
-        system_groups.return_value = {"paperless-users"}
+        system_groups.return_value = {"hr"}
+        managed_groups.return_value = {"hr"}
         pam_authenticate.return_value = user
 
         self.backend.authenticate(
@@ -106,16 +148,21 @@ class TestPaperlessPAMBackend(TestCase):
         )
 
         user.refresh_from_db()
-        self.assertEqual(set(user.groups.all()), {paperless_users})
+        self.assertEqual(
+            set(user.groups.values_list("name", flat=True)),
+            {"hr"},
+        )
         self.assertFalse(user.is_staff)
         self.assertFalse(user.is_superuser)
 
+    @patch.object(PaperlessPAMBackend, "_managed_groups")
     @patch.object(PaperlessPAMBackend, "_system_groups")
     @patch.object(PAMBackend, "authenticate")
     def test_failed_pam_authentication_does_not_change_authorization(
         self,
         pam_authenticate,
         system_groups,
+        managed_groups,
     ):
         user = User.objects.create_user(
             username="alice",
@@ -125,7 +172,8 @@ class TestPaperlessPAMBackend(TestCase):
         existing = Group.objects.create(name="management")
         user.groups.add(existing)
 
-        system_groups.return_value = {"paperless-users"}
+        system_groups.return_value = {"hr"}
+        managed_groups.return_value = {"hr"}
         pam_authenticate.return_value = None
 
         result = self.backend.authenticate(
