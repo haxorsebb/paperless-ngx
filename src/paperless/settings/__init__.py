@@ -319,8 +319,7 @@ AUTHENTICATION_BACKENDS = [
 
 PAM_AUTH_ENABLED = get_bool_from_env("PAPERLESS_ENABLE_PAM_AUTH")
 PAPERLESS_PAM_SERVICE = os.getenv("PAPERLESS_PAM_SERVICE", "paperless")
-PAPERLESS_PAM_USER_GROUP = os.getenv("PAPERLESS_PAM_USER_GROUP", "paperless-users")
-PAPERLESS_PAM_ADMIN_GROUP = os.getenv("PAPERLESS_PAM_ADMIN_GROUP", "paperless-admins")
+PAPERLESS_PAM_GROUP_MARKER = os.getenv(\n    "PAPERLESS_PAM_GROUP_MARKER",\n    "paperless-group-marker",\n)\nPAPERLESS_PAM_ADMIN_GROUP = os.getenv("PAPERLESS_PAM_ADMIN_GROUP", "paperless-admins")
 
 if PAM_AUTH_ENABLED:
     INSTALLED_APPS.append("django_pam")
