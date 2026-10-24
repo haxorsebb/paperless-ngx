@@ -327,10 +327,12 @@ PAPERLESS_PAM_ADMIN_GROUP = os.getenv("PAPERLESS_PAM_ADMIN_GROUP", "paperless-ad
 
 if PAM_AUTH_ENABLED:
     INSTALLED_APPS.append("django_pam")
-    AUTHENTICATION_BACKENDS.insert(
-        0,
+    # PAM is the only credential authority. Keep guardian for object
+    # permissions, but never fall back to local Django/allauth passwords.
+    AUTHENTICATION_BACKENDS = [
         "paperless.pam_auth.PaperlessPAMBackend",
-    )
+        "guardian.backends.ObjectPermissionBackend",
+    ]
 
 ACCOUNT_LOGOUT_ON_GET = True
 ACCOUNT_DEFAULT_HTTP_PROTOCOL = os.getenv(
