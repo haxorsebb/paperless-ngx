@@ -4,6 +4,7 @@ from django.contrib.auth.models import Group
 from django.contrib.auth.models import Permission
 from django.contrib.auth.models import User
 from django.contrib.auth import authenticate
+from django.test import RequestFactory
 from django.test import TestCase
 from django.test import override_settings
 from django_pam.auth.backends import PAMBackend
@@ -36,7 +37,7 @@ class TestPaperlessPAMBackend(TestCase):
     @patch.object(PAMBackend, "authenticate", return_value=None)
     def test_native_password_does_not_bypass_failed_pam(self, pam_authenticate, *_):
         User.objects.create_user(username="admin", password="paperless-only-password")
-        self.assertIsNone(authenticate(username="admin", password="paperless-only-password"))
+        self.assertIsNone(\n            authenticate(\n                request=RequestFactory().post("/accounts/login/"),\n                username="admin",\n                password="paperless-only-password",\n            )\n        )
         pam_authenticate.assert_called_once()
 
     @patch.object(PaperlessPAMBackend, "_managed_groups")
