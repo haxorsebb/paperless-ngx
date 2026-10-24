@@ -3,11 +3,13 @@ from unittest.mock import patch
 from django.contrib.auth.models import Group
 from django.contrib.auth.models import Permission
 from django.contrib.auth.models import User
+from django.contrib.auth import authenticate
 from django.test import TestCase
 from django.test import override_settings
 from django_pam.auth.backends import PAMBackend
 
 from paperless.pam_auth import PaperlessPAMBackend
+from paperless.adapter import CustomAccountAdapter
 
 
 @override_settings(
@@ -18,6 +20,24 @@ from paperless.pam_auth import PaperlessPAMBackend
 class TestPaperlessPAMBackend(TestCase):
     def setUp(self):
         self.backend = PaperlessPAMBackend()
+
+    @override_settings(PAM_AUTH_ENABLED=True)
+    def test_empty_database_does_not_allow_owner_signup(self):
+        self.assertFalse(CustomAccountAdapter().is_open_for_signup(None))
+
+    @override_settings(
+        AUTHENTICATION_BACKENDS=[
+            "paperless.pam_auth.PaperlessPAMBackend",
+            "guardian.backends.ObjectPermissionBackend",
+        ]
+    )
+    @patch.object(PaperlessPAMBackend, "_managed_groups", return_value={"paperless-users"})
+    @patch.object(PaperlessPAMBackend, "_system_groups", return_value={"paperless-users"})
+    @patch.object(PAMBackend, "authenticate", return_value=None)
+    def test_native_password_does_not_bypass_failed_pam(self, pam_authenticate, *_):
+        User.objects.create_user(username="admin", password="paperless-only-password")
+        self.assertIsNone(authenticate(username="admin", password="paperless-only-password"))
+        pam_authenticate.assert_called_once()
 
     @patch.object(PaperlessPAMBackend, "_managed_groups")
     @patch.object(PaperlessPAMBackend, "_system_groups")
