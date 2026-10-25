@@ -11,6 +11,7 @@ from django_pam.auth.backends import PAMBackend
 
 from paperless.pam_auth import PaperlessPAMBackend
 from paperless.adapter import CustomAccountAdapter
+from documents.context_processors import settings as settings_context
 
 
 @override_settings(
@@ -25,6 +26,12 @@ class TestPaperlessPAMBackend(TestCase):
     @override_settings(PAM_AUTH_ENABLED=True)
     def test_empty_database_does_not_allow_owner_signup(self):
         self.assertFalse(CustomAccountAdapter().is_open_for_signup(None))
+
+    @override_settings(PAM_AUTH_ENABLED=True)
+    def test_empty_database_does_not_trigger_first_install_redirect(self):
+        request = RequestFactory().get("/accounts/login/")
+        context = settings_context(request)
+        self.assertFalse(context["FIRST_INSTALL"])
 
     @override_settings(
         AUTHENTICATION_BACKENDS=[
