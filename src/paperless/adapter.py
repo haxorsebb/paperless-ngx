@@ -25,6 +25,11 @@ class CustomAccountAdapter(DefaultAccountAdapter):
         Check whether the site is open for signups, which can be
         disabled via the ACCOUNT_ALLOW_SIGNUPS setting.
         """
+        # In appliance PAM mode accounts are provisioned after successful
+        # system authentication; even an empty database must not offer signup.
+        if settings.PAM_AUTH_ENABLED:
+            return False
+
         if (
             User.objects.exclude(username__in=["consumer", "AnonymousUser"]).count()
             == 0

@@ -27,7 +27,8 @@ def settings(request):
         "domain": getattr(django_settings, "PAPERLESS_URL", request.get_host()),
         "APP_TITLE": app_title,
         "APP_LOGO": app_logo,
-        "FIRST_INSTALL": User.objects.exclude(
+        "FIRST_INSTALL": not django_settings.PAM_AUTH_ENABLED
+        and User.objects.exclude(
             username__in=["consumer", "AnonymousUser"],
         ).count()
         == 0

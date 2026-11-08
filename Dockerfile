@@ -130,6 +130,9 @@ ARG RUNTIME_PACKAGES="\
   gnupg \
   icc-profiles-free \
   imagemagick \
+  # System authentication clients; the SSSD daemon remains on the appliance host.
+  libpam-sss \
+  libnss-sss \
   # PostgreSQL
   postgresql-client \
   # MySQL / MariaDB

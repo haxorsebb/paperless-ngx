@@ -1036,6 +1036,18 @@ wheels = [
 ]
 
 [[package]]
+name = "django-pam"
+version = "3.0.1"
+source = { registry = "https://pypi.org/simple" }
+dependencies = [
+    { name = "python-pam" },
+]
+sdist = { url = "https://files.pythonhosted.org/packages/29/69/525b06667dabbb3b65b5eff8e6a45450113cf041d6600d9728212bd1357f/django_pam-3.0.1.tar.gz", hash = "sha256:da1094b049debfac0dfd052c420ca82306ff6a95f7f9e72106bdb5b4e5dd70c2" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/07/9b/05ad68cdb38c32c045303493dd70538b7bbc523af9ea93e927deb6b53946/django_pam-3.0.1-py3-none-any.whl", hash = "sha256:499ef457eac351c2f132c130a2aba1bb3adadb177a9510fa36271fcec72aff43" },
+]
+
+[[package]]
 name = "django-rich"
 version = "2.2.0"
 source = { registry = "https://pypi.org/simple" }
@@ -2888,6 +2900,7 @@ dependencies = [
     { name = "django-filter" },
     { name = "django-guardian" },
     { name = "django-multiselectfield" },
+    { name = "django-pam", marker = "sys_platform == 'linux'" },
     { name = "django-rich" },
     { name = "django-soft-delete" },
     { name = "django-treenode" },
@@ -3038,6 +3051,7 @@ requires-dist = [
     { name = "django-filter", specifier = "~=25.1" },
     { name = "django-guardian", specifier = "~=3.3.3" },
     { name = "django-multiselectfield", specifier = "~=1.0.1" },
+    { name = "django-pam", marker = "sys_platform == 'linux'", specifier = "==3.0.1" },
     { name = "django-rich", specifier = "~=2.2.0" },
     { name = "django-soft-delete", specifier = "~=1.0.18" },
     { name = "django-treenode", specifier = ">=0.24" },
@@ -3987,6 +4001,15 @@ source = { registry = "https://pypi.org/simple" }
 sdist = { url = "https://files.pythonhosted.org/packages/da/db/0b3e28ac047452d079d375ec6798bf76a036a08182dbb39ed38116a49130/python-magic-0.4.27.tar.gz", hash = "sha256:c1ba14b08e4a5f5c31a302b7721239695b2f0f058d125bd5ce1ee36b9d9d3c3b", size = 14677, upload-time = "2022-06-07T20:16:59.508Z" }
 wheels = [
     { url = "https://files.pythonhosted.org/packages/6c/73/9f872cb81fc5c3bb48f7227872c28975f998f3e7c2b1c16e95e6432bbb90/python_magic-0.4.27-py2.py3-none-any.whl", hash = "sha256:c212960ad306f700aa0d01e5d7a325d20548ff97eb9920dcd29513174f0294d3", size = 13840, upload-time = "2022-06-07T20:16:57.763Z" },
+]
+
+[[package]]
+name = "python-pam"
+version = "2.1.0"
+source = { registry = "https://pypi.org/simple" }
+sdist = { url = "https://files.pythonhosted.org/packages/e1/3f/cdf0b4823505df2534feb21ad6c1f552a6d1584278e6c2337b99b2c12e6a/python_pam-2.1.0.tar.gz", hash = "sha256:04598b0fba9e3fa290f27e4f8d1762a9d61b75f1e38b53e9d8d861af53eb0d2a" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/ad/b6/1f9d82f4f4466159dbf3ddf5d9960cea5e81c6b66eba318d3252fd5bc64a/python_pam-2.1.0-py3-none-any.whl", hash = "sha256:5bbad1e2b93b30a48466a285e4979c702d4e6f61f3c920db874f171dfb0bb146" },
 ]
 
 [[package]]
