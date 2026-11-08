@@ -43,11 +43,11 @@ class TestPaperlessPAMBackend(TestCase):
     @patch.object(PaperlessPAMBackend, "_system_groups", return_value={"paperless-users"})
     @patch.object(PAMBackend, "authenticate", return_value=None)
     def test_native_password_does_not_bypass_failed_pam(self, pam_authenticate, *_):
-        User.objects.create_user(username="admin", password="paperless-only-password")
+        User.objects.create_user(username="administrator", password="paperless-only-password")
         self.assertIsNone(
             authenticate(
                 request=RequestFactory().post("/accounts/login/"),
-                username="admin",
+                username="administrator",
                 password="paperless-only-password",
             )
         )
